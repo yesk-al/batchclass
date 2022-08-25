@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<file:config name="File_Config" doc:name="File Config" doc:id="a4b87b48-3f01-4ae3-b3a0-a963259817b6" >
+		<file:connection workingDir="/Users/ESKNDIR/Desktop/csv_ETL" />
+	</file:config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="2e0bdea5-37cb-4299-9c6b-6f0d6feebc42" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="ESK379170@e" />
+	</db:config>
+	<flow name="batch_classFlow" doc:id="ee4bb542-318c-4b60-9bf5-2d4fb3e91fb5" >
+		<file:listener doc:name="On New or Updated File" doc:id="b9918347-1e36-4130-8422-74e56f0cdc67" config-ref="File_Config" directory="/Users/ESKNDIR/Desktop/csv_ETL" watermarkMode="MODIFIED_TIMESTAMP" timeBetweenSizeCheck="5" moveToDirectory="/Users/ESKNDIR/Desktop/craftShopping/Bach_ETL">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</file:listener>
+		<set-variable value='#[now() as String {format:"yyyy-MM-dd:hh-mm-ss"}]' doc:name="Set Variable" doc:id="f20ccf03-0398-4f29-89cf-a57d630c6a76" variableName="MuleTime"/>
+		<ee:transform doc:name="Transform Message" doc:id="4aa7a0ef-bd52-469d-9500-af9684437b70" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map{
+	id: $.id,
+	fullName: $.first_name ++" "++ $.last_name,
+	email: $.email,
+	phoneNumber: $.phone_number,
+	MuleTimeStamp: vars.MuleTime
+	
+	
+	}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="batch_classBatch_Job" doc:id="218f39b9-534d-4b38-998b-3dbede36f1c0" >
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="878c288d-7361-460a-808a-864249459b5d" >
+					<db:insert doc:name="Insert" doc:id="82ffe62c-7d09-4082-ae03-77d7c950be2c" config-ref="Database_Config">
+						<db:sql ><![CDATA[insert into  csv_Ex.csv_table(id, fullName, email, phoneNumber, MuleTimeStamp)
+values(:id, :fullName, :email, :phoneNumber, :MuleTimeStamp)]]></db:sql>
+						<db:input-parameters ><![CDATA[#[{
+	id: payload.id,
+	fullName: payload.fullName,
+	email: payload.email,
+	phoneNumber: payload.phoneNumber,
+	MuleTimeStamp: payload.MuleTimeStamp
+		
+	
+	}]]]></db:input-parameters>
+					</db:insert>
+				</batch:step>
+			</batch:process-records>
+		</batch:job>
+	</flow>
+</mule>
